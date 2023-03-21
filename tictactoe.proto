@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package tic_tac_toe;
+
+service TicTacToe {
+  rpc handle_election(ElectionMessage) returns (ElectionResult) {}
+  rpc handle_move(MoveMessage) returns (MoveResponse) {}
+  rpc handle_opponent_move(MoveMessage) returns (Empty) {}
+}
+
+message Empty {}
+
+message ElectionMessage {
+  int32 sender_id = 1;
+}
+
+message ElectionResult {
+  int32 leader_id = 1;
+  bool success = 2;
+}
+
+message MoveMessage {
+  int32 node_id = 1;
+  string move = 2;
+  bool state = 3;
+}
+
+message MoveResponse {
+  bool state = 1;
+}
