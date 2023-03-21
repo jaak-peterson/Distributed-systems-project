@@ -18,14 +18,14 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
       self.nodes_ports = nodes_ports
       self.game = None
     
-    def runServer(self):
+    def run_server(self):
       self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
       tictactoe_pb2_grpc.add_TicTacToeServicer_to_server(self, self.server)
       self.server.add_insecure_port(f'[::]:{self.server_address}') 
       self.server.start()
       print(f"Server started listening on port {self.server_address}")
     
-    def stopServer(self):
+    def stop_server(self):
       self.server.stop(0)
 
     def handle_election(self, request, context):
@@ -42,7 +42,7 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
                 response = stub.handle_election(tictactoe_pb2.ElectionMessage(sender_id=request.sender_id+1))
                 return response
 
-    def startElection(self):
+    def start_election(self):
       print(f"I am process {self.node_id} and I am initiating the election")
       with grpc.insecure_channel(f'localhost:50052') as channel:
           stub = tictactoe_pb2_grpc.TicTacToeStub(channel)
@@ -53,7 +53,7 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
               print("Election failed")
           return response
 
-    def initGame(self):
+    def init_game(self):
       print("Init game")
       self.game = TicTacToe()
 
@@ -100,20 +100,20 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
  
 def serve():
     node1 = Node(1, 50051, [2, 3], [50052,50053])
-    node1.runServer()
+    node1.run_server()
     
     node2 = Node(2, 50052, [1, 3], [50051, 50053])
-    node2.runServer()
+    node2.run_server()
 
     node3 = Node(3, 50053, [1, 2], [50051, 50052])
-    node3.runServer()
+    node3.run_server()
 
     # TODO: Add some randomness to the election.
     time.sleep(3)
-    node1.startElection()
+    node1.start_election()
 
     time.sleep(3)
-    node3.initGame()
+    node3.init_game()
 
     time.sleep(3)
     # Play game
@@ -141,7 +141,7 @@ def serve():
       while True:
         time.sleep(86400)
     except KeyboardInterrupt:
-        node1.stopServer()
+        node1.stop_server()
 
 
 if __name__ == '__main__':
