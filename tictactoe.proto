@@ -12,14 +12,13 @@ service TicTacToe {
 message Empty {}
 
 message ElectionMessage {
-  int32 sender_id = 1;
+   repeated int32 candidate_ids = 1;
 }
 
 message ElectionResult {
   int32 leader_id = 1;
   bool success = 2;
 }
-
 
 message PingResult{
   bool success = 1;
