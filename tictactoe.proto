@@ -7,9 +7,21 @@ service TicTacToe {
   rpc handle_election(ElectionMessage) returns (ElectionResult) {}
   rpc handle_move(MoveMessage) returns (MoveResponse) {}
   rpc handle_opponent_move(MoveMessage) returns (Empty) {}
+  rpc ask_board_state(Empty) returns (GameStateResponse) {}
 }
 
 message Empty {}
+
+message StartGameInfo {
+  int32 staring_node=1;
+  int32 second_node=2;
+}
+
+message GameStateResponse {
+   repeated string board =1;
+   int32 to_play = 2;
+   string datetime = 3;
+}
 
 message ElectionMessage {
    repeated int32 candidate_ids = 1;
@@ -26,10 +38,11 @@ message PingResult{
 
 message MoveMessage {
   int32 node_id = 1;
-  string move = 2;
-  bool state = 3;
+  int32 location = 2;
+  string char = 3;
 }
 
 message MoveResponse {
   bool state = 1;
+  bool was_legal_move= 2;
 }

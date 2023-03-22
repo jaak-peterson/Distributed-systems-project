@@ -1,3 +1,7 @@
+import datetime
+import random
+from enum import Enum
+
 from TicTacToe import TicTacToe
 import grpc
 from concurrent import futures
@@ -7,7 +11,7 @@ import os
 import tictactoe_pb2
 import tictactoe_pb2_grpc
 
-network="localhost"
+network = "localhost"
 
 port_map = {
     1: 50051,
@@ -16,14 +20,19 @@ port_map = {
 }
 
 
+class Symbol(Enum):
+    X = "x",
+    O = "o",
+
+
 class Node(tictactoe_pb2_grpc.TicTacToeServicer):
+
     def __init__(self, node_id, server_address):
         self.node_id = node_id
         self.is_leader = False
         self.leader_id = None
+        self.symbol = None
         self.server_address = server_address
-        self.nodes_ids = list(port_map.keys()).remove(node_id)
-        self.nodes_ports = list(port_map.values()).remove(server_address)
         self.game = None
 
     def run_server(self):
@@ -32,6 +41,58 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
         self.server.add_insecure_port(f'[::]:{self.server_address}')
         self.server.start()
         print(f"Server started listening on port {self.server_address}")
+        while True:
+            try:
+                user_input = input(f'Node-{self.node_id}>')
+                if user_input == "":
+                    continue
+                ui_parts = user_input.split()
+                if ui_parts[0] == "Check-connections":
+                    connected_nodes = self.is_connected_with_other_nodes()
+                    print(f"Node {self.node_id} is connected to nodes {connected_nodes}")
+                elif ui_parts[0] == "Elect-leader":
+                    if not all(self.is_connected_with_other_nodes()):
+                        print("Connection to all nodes failed, please assure all nodes are in the same network.")
+                    else:
+                        self.start_election()
+                elif ui_parts[0] == "List-board":
+                    data = self.ask_for_board_info()
+                    b = list(data.board)
+                    b = list(map(lambda x: "empty" if x == "" else x, b))
+                    os = b.count("O")
+                    xs = b.count("X")
+                    symbol = "X" if os == xs else "O"
+                    is_my_turn = self.node_id == data.to_play
+                    if is_my_turn:
+                        print("It is your turn.")
+                    else:
+                        print("It is opponent's turn")
+                    print(f'{symbol}: {data.datetime}, {str(b)}')
+                elif ui_parts[0] == "Set-node-time":
+                    pass
+                elif ui_parts[0] == "Set-symbol":
+                    if len(ui_parts) != 3:
+                        print("Set-symbol requires two parameters loc(1-9) and symbol(X,O), separated by comma")
+                    self.move(int(ui_parts[1].strip(", ")), ui_parts[2])
+                else:
+                    print("invalid input")
+            except Exception as e:
+                print(
+                    f'You broke something. Go in your room and think about what you have done. Error-type {type(e)}{e}')
+
+    def ask_board_state(self, request, context):
+        dt = datetime.datetime.utcnow()
+        dt = dt.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+        board = self.game.get_board_list()
+        print(board)
+        return tictactoe_pb2.GameStateResponse(datetime=dt, board=board, to_play=self.game.to_play())
+
+    def ask_for_board_info(self):
+        if not self.leader_id:
+            print("No leader selected.")
+        with grpc.insecure_channel(f'{network}:{port_map[self.leader_id]}') as channel:
+            stub = tictactoe_pb2_grpc.TicTacToeStub(channel)
+            return stub.ask_board_state(tictactoe_pb2.Empty())
 
     def stop_server(self):
         self.server.stop(0)
@@ -43,14 +104,13 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
 
         print(f"Received election message from process {request.candidate_ids[-1]}")
         if self.node_id == request.candidate_ids[0]:
-            result = tictactoe_pb2.ElectionResult(leader_id = max(request.candidate_ids))
-            result.success = True
+            result = tictactoe_pb2.ElectionResult(leader_id=max(request.candidate_ids), success=True)
             return result
         else:
             target_id = self.node_id + 1
             if target_id > 3:
                 target_id -= 3
-            print(f"Forwarding election message from process {request.candidate_ids[-1]} to process {target_id}")
+            print(f"Forwarding election message from process {self.node_id} to process {target_id}")
             with grpc.insecure_channel(f'{network}:{port_map[target_id]}') as channel:
                 stub = tictactoe_pb2_grpc.TicTacToeStub(channel)
                 new_c_ids = list(request.candidate_ids) + [self.node_id]
@@ -58,59 +118,60 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
                 if response.success:
                     print(f'Leader selected: {response.leader_id}')
                     self.leader_id = response.leader_id
+                    if self.leader_id == self.node_id:
+                        self.init_game()
                 return response
 
     def start_election(self):
         print(f"I am process {self.node_id} and I am initiating the election")
 
         target_id = self.node_id + 1
-        if target_id>3:
+        if target_id > 3:
             target_id -= 3
         with grpc.insecure_channel(f'{network}:{port_map[target_id]}') as channel:
             stub = tictactoe_pb2_grpc.TicTacToeStub(channel)
             response = stub.handle_election(tictactoe_pb2.ElectionMessage(candidate_ids=[self.node_id]))
             if response.success:
                 print(f"Node {self.node_id}: Election completed successfully. Coordinator ID is {response.leader_id}")
-                self.leader_id=response.leader_id
+                self.leader_id = response.leader_id
+                if self.leader_id == self.node_id:
+                    self.init_game()
             else:
                 print("Election failed")
             return response
 
     def init_game(self):
-        print("Init game")
-        self.game = TicTacToe()
+        print("Initializing the game as the leader")
+        ids = list(port_map.keys())
+        ids.sort()
+        starting_player, second_player = (ids[0], ids[1]) if random.random() > 0.5 else (ids[1], ids[0])
+        self.game = TicTacToe(x_player=starting_player, o_player=second_player)
+        return
 
     def handle_move(self, request, context):
-        node_id = request.node_id
-        move_str = request.move
-        self.game.move(move_str)
+        if self.game.to_play() != request.node_id:
+            print("Wrong player is trying to make a turn")
+            return tictactoe_pb2.MoveResponse(was_legal_move=False)
+        if request.char.lower() != self.game.get_next_char().lower():
+            print("Player is trying to make an illegal move")
+            return tictactoe_pb2.MoveResponse(was_legal_move=False)
+        self.game.move(f'{request.location - 1}, {request.char}')
         state = self.game.get_state()
-        if node_id == 1:
-            with grpc.insecure_channel(f'localhost:50052') as channel:
-                stub = tictactoe_pb2_grpc.TicTacToeStub(channel)
-                response = stub.handle_opponent_move(tictactoe_pb2.MoveMessage(node_id=2, move=move_str, state=state))
-
-        elif node_id == 2:
-            with grpc.insecure_channel(f'localhost:50051') as channel:
-                stub = tictactoe_pb2_grpc.TicTacToeStub(channel)
-                response = stub.handle_opponent_move(tictactoe_pb2.MoveMessage(node_id=1, move=move_str, state=state))
 
         return tictactoe_pb2.MoveResponse(state=state)
 
     def is_connected_with_other_nodes(self):
-        connected_to_all_nodes = True
-        print("Checking connection with other nodes.")
+        connected_nodes = []
         for target in port_map.keys():
-            if id != target:
+            if self.node_id != target:
                 if not check_ping(target):
-                    connected_to_all_nodes = False
-                    print(f'Connection to node{target} failed trying again in 10 seconds')
+                    print(f'Connection to node {target} failed')
                     # Necessary for case when elected leader disconnects.
                     if (target == self.leader_id):
                         self.leader_id = None
-
-        return connected_to_all_nodes
-
+                else:
+                    connected_nodes.append(target)
+        return connected_nodes
 
     def handle_opponent_move(self, request, context):
         state = request.state
@@ -123,11 +184,14 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
             print(f"Node {self.node_id}: Tie!")
         return tictactoe_pb2.Empty()
 
-    def move(self, move):
-        with grpc.insecure_channel(f'localhost:50053') as channel:
+    def move(self, location, char):
+        with grpc.insecure_channel(f'{network}:{port_map[self.leader_id]}') as channel:
             stub = tictactoe_pb2_grpc.TicTacToeStub(channel)
-            response = stub.handle_move(tictactoe_pb2.MoveMessage(node_id=self.node_id, move=move, state=None))
+            response = stub.handle_move(tictactoe_pb2.MoveMessage(node_id=self.node_id, location=location, char=char))
             state = response.state
+            if response.was_legal_move is True:
+                print("You are trying something illegal, arent ya")
+                return
             if state is False:
                 print(f"Node {self.node_id}: Game continues, now is opponent's turn")
             elif state is True:
@@ -135,7 +199,16 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
             elif state is None:
                 print(f"Node {self.node_id}: Tie!")
 
+    def start_game(self, request, context):
+        self.symbol = "X" if self.node_id == request.starting_node else "O"
+        self.game = TicTacToe(board_size=3, x_player=request.starting_node, o_player=request.second_node)
 
+    def notify_start_game(self, player, starting_node, second_node):
+        with grpc.insecure_channel(f'{network}:{port_map[player]}') as channel:
+            stub = tictactoe_pb2_grpc.TicTacToeStub(channel)
+            response = stub.handle_move(tictactoe_pb2.start_game(
+                tictactoe_pb2.StartGameInfo(starting_node=starting_node, second_node=second_node)))
+            return response
 
 
 def check_ping(target_id):
@@ -148,30 +221,10 @@ def check_ping(target_id):
             return False
         return True
 
+
 def serve(id):
     node = Node(id, port_map[id])
     node.run_server()
-
-    while True:
-        if not node.is_connected_with_other_nodes():
-            time.sleep(10)
-            continue
-
-        if not node.leader_id:
-            success = node.start_election()
-            if not success:
-                time.sleep(10)
-                continue
-
-        if node.leader_id == id:
-            if not node.game:
-                node.init_game()
-            time.sleep(5)
-            continue
-        else:
-
-
-
 
     """
     time.sleep(3)
@@ -203,6 +256,8 @@ def serve(id):
         node1.stop_server()
 
     """
+
+
 import argparse
 
 if __name__ == '__main__':

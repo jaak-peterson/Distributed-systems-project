@@ -34,6 +34,11 @@ class TicTacToeStub(object):
                 request_serializer=tictactoe__pb2.MoveMessage.SerializeToString,
                 response_deserializer=tictactoe__pb2.Empty.FromString,
                 )
+        self.ask_board_state = channel.unary_unary(
+                '/tic_tac_toe.TicTacToe/ask_board_state',
+                request_serializer=tictactoe__pb2.Empty.SerializeToString,
+                response_deserializer=tictactoe__pb2.GameStateResponse.FromString,
+                )
 
 
 class TicTacToeServicer(object):
@@ -63,6 +68,12 @@ class TicTacToeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ask_board_state(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_TicTacToeServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -85,6 +96,11 @@ def add_TicTacToeServicer_to_server(servicer, server):
                     servicer.handle_opponent_move,
                     request_deserializer=tictactoe__pb2.MoveMessage.FromString,
                     response_serializer=tictactoe__pb2.Empty.SerializeToString,
+            ),
+            'ask_board_state': grpc.unary_unary_rpc_method_handler(
+                    servicer.ask_board_state,
+                    request_deserializer=tictactoe__pb2.Empty.FromString,
+                    response_serializer=tictactoe__pb2.GameStateResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -161,5 +177,22 @@ class TicTacToe(object):
         return grpc.experimental.unary_unary(request, target, '/tic_tac_toe.TicTacToe/handle_opponent_move',
             tictactoe__pb2.MoveMessage.SerializeToString,
             tictactoe__pb2.Empty.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ask_board_state(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/tic_tac_toe.TicTacToe/ask_board_state',
+            tictactoe__pb2.Empty.SerializeToString,
+            tictactoe__pb2.GameStateResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
