@@ -3,6 +3,7 @@ syntax = "proto3";
 package tic_tac_toe;
 
 service TicTacToe {
+  rpc ping_node(Empty) returns (PingResult){}
   rpc handle_election(ElectionMessage) returns (ElectionResult) {}
   rpc handle_move(MoveMessage) returns (MoveResponse) {}
   rpc handle_opponent_move(MoveMessage) returns (Empty) {}
@@ -17,6 +18,11 @@ message ElectionMessage {
 message ElectionResult {
   int32 leader_id = 1;
   bool success = 2;
+}
+
+
+message PingResult{
+  bool success = 1;
 }
 
 message MoveMessage {
