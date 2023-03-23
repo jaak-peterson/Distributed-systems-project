@@ -39,6 +39,16 @@ class TicTacToeStub(object):
                 request_serializer=tictactoe__pb2.Empty.SerializeToString,
                 response_deserializer=tictactoe__pb2.GameStateResponse.FromString,
                 )
+        self.end_game = channel.unary_unary(
+                '/tic_tac_toe.TicTacToe/end_game',
+                request_serializer=tictactoe__pb2.Empty.SerializeToString,
+                response_deserializer=tictactoe__pb2.Empty.FromString,
+                )
+        self.send_message = channel.unary_unary(
+                '/tic_tac_toe.TicTacToe/send_message',
+                request_serializer=tictactoe__pb2.GeneralMessage.SerializeToString,
+                response_deserializer=tictactoe__pb2.Empty.FromString,
+                )
 
 
 class TicTacToeServicer(object):
@@ -74,6 +84,18 @@ class TicTacToeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def end_game(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def send_message(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_TicTacToeServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -101,6 +123,16 @@ def add_TicTacToeServicer_to_server(servicer, server):
                     servicer.ask_board_state,
                     request_deserializer=tictactoe__pb2.Empty.FromString,
                     response_serializer=tictactoe__pb2.GameStateResponse.SerializeToString,
+            ),
+            'end_game': grpc.unary_unary_rpc_method_handler(
+                    servicer.end_game,
+                    request_deserializer=tictactoe__pb2.Empty.FromString,
+                    response_serializer=tictactoe__pb2.Empty.SerializeToString,
+            ),
+            'send_message': grpc.unary_unary_rpc_method_handler(
+                    servicer.send_message,
+                    request_deserializer=tictactoe__pb2.GeneralMessage.FromString,
+                    response_serializer=tictactoe__pb2.Empty.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -194,5 +226,39 @@ class TicTacToe(object):
         return grpc.experimental.unary_unary(request, target, '/tic_tac_toe.TicTacToe/ask_board_state',
             tictactoe__pb2.Empty.SerializeToString,
             tictactoe__pb2.GameStateResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def end_game(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/tic_tac_toe.TicTacToe/end_game',
+            tictactoe__pb2.Empty.SerializeToString,
+            tictactoe__pb2.Empty.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def send_message(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/tic_tac_toe.TicTacToe/send_message',
+            tictactoe__pb2.GeneralMessage.SerializeToString,
+            tictactoe__pb2.Empty.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

@@ -23,9 +23,30 @@ class TicTacToe:
         self.board = board_1d.reshape(self.board_size, self.board_size)
 
     def to_play(self):
-        os = np.count_nonzero(self.board == "O" )
+        os = np.count_nonzero(self.board == "O")
         xs = np.count_nonzero(self.board == "X")
         return self.x_player if xs == os else self.o_player
+
+    def get_winner(self):
+        for i in range(self.board_size):
+            if check_win(self.board[i]):
+                return list(set(self.board[i]))[0]
+        # Check columns
+        transposed = self.board.T
+        for i in range(self.board_size):
+            if check_win(transposed[i]):
+                return list(set(transposed[i]))[0]
+        # Check diagonals
+        if check_win(np.array([self.board[i][i] for i in range(self.board_size)])):
+            return list(set(np.array([self.board[i][i] for i in range(self.board_size)])))[0]
+        if check_win(np.array([self.board[i][self.board_size - 1 - i] for i in range(self.board_size)])):
+            return list(set(np.array([self.board[i][self.board_size - 1 - i] for i in range(self.board_size)])))[0]
+
+        # Neither has won, check whether the game continues
+        if '' in self.board:
+            return False
+        else:
+            return None
 
     # Return 'True' if the game was won,
     # 'False' if the game continues,
@@ -53,8 +74,8 @@ class TicTacToe:
             return None
 
     def get_next_char(self):
-        os = np.count_nonzero(self.board == "o")
-        xs = np.count_nonzero(self.board == "x")
+        os = np.count_nonzero(self.board == "O")
+        xs = np.count_nonzero(self.board == "X")
         return "O" if os<xs else "X"
 
     def get_board_list(self):

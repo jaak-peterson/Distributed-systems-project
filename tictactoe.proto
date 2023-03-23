@@ -8,9 +8,15 @@ service TicTacToe {
   rpc handle_move(MoveMessage) returns (MoveResponse) {}
   rpc handle_opponent_move(MoveMessage) returns (Empty) {}
   rpc ask_board_state(Empty) returns (GameStateResponse) {}
+  rpc end_game(Empty) returns (Empty){}
+  rpc send_message(GeneralMessage) returns (Empty){}
 }
 
 message Empty {}
+
+message GeneralMessage {
+  string message = 1 ;
+}
 
 message StartGameInfo {
   int32 staring_node=1;
@@ -21,6 +27,7 @@ message GameStateResponse {
    repeated string board =1;
    int32 to_play = 2;
    string datetime = 3;
+   int32 winner = 4;
 }
 
 message ElectionMessage {
@@ -44,5 +51,5 @@ message MoveMessage {
 
 message MoveResponse {
   bool state = 1;
-  bool was_legal_move= 2;
+  string error_msg= 2;
 }
