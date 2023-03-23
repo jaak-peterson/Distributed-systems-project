@@ -211,7 +211,7 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
         connected_nodes = []
         for target in port_map.keys():
             if self.node_id != target:
-                if not check_ping(target):
+                if not self.check_ping(target):
                     print(f'Connection to node {target} failed')
                     # Necessary for case when elected leader disconnects.
                     if target == self.leader_id:
@@ -219,17 +219,6 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
                 else:
                     connected_nodes.append(target)
         return connected_nodes
-
-    def handle_opponent_move(self, request, context):
-        state = request.state
-        opponent_move = request.move
-        if state is False:
-            print(f"Node {self.node_id}: Your opponent's move was {opponent_move}, now is your turn")
-        elif state is True:
-            print(f"Node {self.node_id}: Sorry, you lost the game")
-        elif state is None:
-            print(f"Node {self.node_id}: Tie!")
-        return tictactoe_pb2.Empty()
 
     def move(self, location, char):
         with grpc.insecure_channel(f'{network}:{port_map[self.leader_id]}') as channel:
@@ -257,15 +246,15 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
         return
 
 
-def check_ping(target_id):
-    port = port_map[target_id]
-    with grpc.insecure_channel(f'{network}:{port}') as channel:
-        stub = tictactoe_pb2_grpc.TicTacToeStub(channel)
-        try:
-            response = stub.ping_node(tictactoe_pb2.Empty())
-        except grpc.RpcError as rpc_error:
-            return False
-        return True
+    def check_ping(self, target_id):
+        port = port_map[target_id]
+        with grpc.insecure_channel(f'{network}:{port}') as channel:
+            stub = tictactoe_pb2_grpc.TicTacToeStub(channel)
+            try:
+                response = stub.ping_node(tictactoe_pb2.Empty())
+            except grpc.RpcError as rpc_error:
+                return False
+            return True
 
 
 def serve(id):
