@@ -31,7 +31,7 @@ class TicTacToeStub(object):
                 )
         self.ask_board_state = channel.unary_unary(
                 '/tic_tac_toe.TicTacToe/ask_board_state',
-                request_serializer=tictactoe__pb2.Empty.SerializeToString,
+                request_serializer=tictactoe__pb2.AskBoardStateMessage.SerializeToString,
                 response_deserializer=tictactoe__pb2.GameStateResponse.FromString,
                 )
         self.end_game = channel.unary_unary(
@@ -48,6 +48,16 @@ class TicTacToeStub(object):
                 '/tic_tac_toe.TicTacToe/set_time',
                 request_serializer=tictactoe__pb2.SetTimeMessage.SerializeToString,
                 response_deserializer=tictactoe__pb2.Empty.FromString,
+                )
+        self.request_timeout_enforcing = channel.unary_unary(
+                '/tic_tac_toe.TicTacToe/request_timeout_enforcing',
+                request_serializer=tictactoe__pb2.TimeoutRequestMessage.SerializeToString,
+                response_deserializer=tictactoe__pb2.Empty.FromString,
+                )
+        self.kick_gamemaster = channel.unary_unary(
+                '/tic_tac_toe.TicTacToe/kick_gamemaster',
+                request_serializer=tictactoe__pb2.GameMasterKickRequest.SerializeToString,
+                response_deserializer=tictactoe__pb2.GameMasterKickResponse.FromString,
                 )
 
 
@@ -96,6 +106,18 @@ class TicTacToeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def request_timeout_enforcing(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def kick_gamemaster(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_TicTacToeServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -116,7 +138,7 @@ def add_TicTacToeServicer_to_server(servicer, server):
             ),
             'ask_board_state': grpc.unary_unary_rpc_method_handler(
                     servicer.ask_board_state,
-                    request_deserializer=tictactoe__pb2.Empty.FromString,
+                    request_deserializer=tictactoe__pb2.AskBoardStateMessage.FromString,
                     response_serializer=tictactoe__pb2.GameStateResponse.SerializeToString,
             ),
             'end_game': grpc.unary_unary_rpc_method_handler(
@@ -133,6 +155,16 @@ def add_TicTacToeServicer_to_server(servicer, server):
                     servicer.set_time,
                     request_deserializer=tictactoe__pb2.SetTimeMessage.FromString,
                     response_serializer=tictactoe__pb2.Empty.SerializeToString,
+            ),
+            'request_timeout_enforcing': grpc.unary_unary_rpc_method_handler(
+                    servicer.request_timeout_enforcing,
+                    request_deserializer=tictactoe__pb2.TimeoutRequestMessage.FromString,
+                    response_serializer=tictactoe__pb2.Empty.SerializeToString,
+            ),
+            'kick_gamemaster': grpc.unary_unary_rpc_method_handler(
+                    servicer.kick_gamemaster,
+                    request_deserializer=tictactoe__pb2.GameMasterKickRequest.FromString,
+                    response_serializer=tictactoe__pb2.GameMasterKickResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -207,7 +239,7 @@ class TicTacToe(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/tic_tac_toe.TicTacToe/ask_board_state',
-            tictactoe__pb2.Empty.SerializeToString,
+            tictactoe__pb2.AskBoardStateMessage.SerializeToString,
             tictactoe__pb2.GameStateResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
@@ -260,5 +292,39 @@ class TicTacToe(object):
         return grpc.experimental.unary_unary(request, target, '/tic_tac_toe.TicTacToe/set_time',
             tictactoe__pb2.SetTimeMessage.SerializeToString,
             tictactoe__pb2.Empty.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def request_timeout_enforcing(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/tic_tac_toe.TicTacToe/request_timeout_enforcing',
+            tictactoe__pb2.TimeoutRequestMessage.SerializeToString,
+            tictactoe__pb2.Empty.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def kick_gamemaster(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/tic_tac_toe.TicTacToe/kick_gamemaster',
+            tictactoe__pb2.GameMasterKickRequest.SerializeToString,
+            tictactoe__pb2.GameMasterKickResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

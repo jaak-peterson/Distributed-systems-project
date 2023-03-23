@@ -1,14 +1,10 @@
 import datetime
 import random
-from enum import Enum
 
 from TicTacToe import TicTacToe
 import grpc
 from concurrent import futures
-import time
-import os
 import argparse
-
 
 import tictactoe_pb2
 import tictactoe_pb2_grpc
@@ -22,11 +18,6 @@ port_map = {
 }
 
 
-class Symbol(Enum):
-    X = "x",
-    O = "o",
-
-
 class Node(tictactoe_pb2_grpc.TicTacToeServicer):
 
     def __init__(self, node_id):
@@ -35,6 +26,9 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
         self.server = None
         self.time_diff = None
         self.game = None
+        self.game_master_timeout = 1
+        self.player_timeout = 1
+        self.timeout_map = {key: datetime.datetime.utcnow().time() for key in port_map.keys()}
 
     def run_server(self):
         self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
@@ -58,8 +52,38 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
                         continue
                     else:
                         self.init_game()
-                elif ui_parts[0] =="Get-local-time":
+                elif ui_parts[0] == "Set-time-out":
+                    if len(ui_parts) != 3:
+                        print("Set-time-out requires two parameters: type(player, game-master) and time in minutes")
+                    elif ui_parts[1] not in ["player", "game-master"]:
+                        print("Invalid type parameter")
+                    elif not ui_parts[2].isnumeric():
+                        print("Time must be numeric")
+                    else:
+                        if ui_parts[1] == "player":
+                            self.player_timeout = int(ui_parts[2])
+                            print(f"New player timeout is {ui_parts[2]} minutes")
+                        else:
+                            self.game_master_timeout = int(ui_parts[2])
+                            print(f"New gamemaster timeout is {ui_parts[2]} minutes")
+                elif ui_parts[0] == "Get-local-time":
                     print(self.get_time())
+                elif ui_parts[0] == "Enforce-time-out":
+                    if self.leader_id is None:
+                        print("Can not timeout, because there is no leader")
+                    if self.node_id == self.leader_id:
+                        timeouts = self.enforce_player_timeouts()
+                        if not timeouts:
+                            print("No timeouts can be ordered.")
+                    else:
+                        self.request_leader_timeout_enforcal()
+                        if (datetime.datetime.combine(datetime.date.min, datetime.datetime.utcnow().time()) -
+                            datetime.datetime.combine(datetime.date.min, self.timeout_map[self.leader_id])) \
+                                .total_seconds() > self.game_master_timeout * 60:
+                            self.timeout_gm()
+                        else:
+                            print("Leader has not timed out")
+
                 elif ui_parts[0] == "Elect-leader":
                     if not all(self.is_connected_with_other_nodes()):
                         print("Connection to all nodes failed, please assure all nodes are in the same network.")
@@ -93,13 +117,18 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
                     f'You broke something. Go in your room and think about what you have done. Error-type {type(e)}{e}')
 
     def end_game(self, request, context):
+        self.timeout_map[self.leader_id] = datetime.datetime.utcnow().time()
         self.leader_id = None
         print("Game master has stepped down.")
         return tictactoe_pb2.Empty()
 
     def step_down(self):
         print("Initalizing stepping down")
-        players = [self.game.o_player, self.game.x_player]
+        if self.game:
+            players = [self.game.o_player, self.game.x_player]
+        else:
+            players = list(port_map.keys())
+            players.remove(self.node_id)
         for player in players:
             with grpc.insecure_channel(f'{network}:{port_map[player]}') as channel:
                 stub = tictactoe_pb2_grpc.TicTacToeStub(channel)
@@ -107,6 +136,8 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
         self.game = None
 
     def ask_board_state(self, request, context):
+        self.timeout_map[request.node_id] = datetime.datetime.utcnow().time()
+
         dt = datetime.datetime.utcnow()
         dt = dt.strftime("%H:%M:%S.%f")[:-3]
         board = self.game.get_board_list()
@@ -121,10 +152,21 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
             print("No leader selected.")
         with grpc.insecure_channel(f'{network}:{port_map[self.leader_id]}') as channel:
             stub = tictactoe_pb2_grpc.TicTacToeStub(channel)
-            return stub.ask_board_state(tictactoe_pb2.Empty())
+            resp= stub.ask_board_state(tictactoe_pb2.AskBoardStateMessage(node_id=self.node_id))
+            self.timeout_map[self.leader_id] = datetime.datetime.utcnow().time()
+            return resp
 
     def stop_server(self):
         self.server.stop(0)
+
+    def push_masters_time(self):
+        ids = list(port_map.keys())
+        ids.remove(self.node_id)
+        for el in ids:
+            dt = datetime.datetime.utcnow()
+            dt = dt.strftime("%H:%M:%S")
+            self.set_node_time(el, dt)
+        return
 
     def ping_node(self, request, context):
         return tictactoe_pb2.PingResult(success=True)
@@ -147,9 +189,16 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
                 if response.success:
                     print(f'Leader selected: {response.leader_id}')
                     self.leader_id = response.leader_id
+                    if self.leader_id == self.node_id:
+                        self.timeout_map = {key: datetime.datetime.utcnow().time() for key in port_map.keys()}
+                        self.push_masters_time()
                 return response
 
     def start_election(self):
+        if self.leader_id is not None:
+            print("Leader already exists")
+            return
+
         print(f"I am process {self.node_id} and I am initiating the election")
 
         target_id = self.node_id + 1
@@ -161,7 +210,10 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
             if response.success:
                 print(f"Node {self.node_id}: Election completed successfully. Coordinator ID is {response.leader_id}")
                 self.leader_id = response.leader_id
+                if self.leader_id == self.node_id:
+                    self.timeout_map = {key: datetime.datetime.utcnow().time() for key in port_map.keys()}
 
+                    self.push_masters_time()
             else:
                 print("Election failed")
             return response
@@ -183,10 +235,12 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
         return
 
     def send_message(self, request, context):
+        self.timeout_map[self.leader_id] = datetime.datetime.utcnow().time()
         print(request.message)
         return tictactoe_pb2.Empty()
 
     def handle_move(self, request, context):
+        self.timeout_map[request.node_id] = datetime.datetime.utcnow().time()
 
         if self.game.get_board_list()[request.location - 1] in ["X", "O"]:
             return tictactoe_pb2.MoveResponse(error_msg=f"Location {request.location} already contains a number")
@@ -226,8 +280,12 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
 
     def move(self, location, char):
         with grpc.insecure_channel(f'{network}:{port_map[self.leader_id]}') as channel:
+
             stub = tictactoe_pb2_grpc.TicTacToeStub(channel)
             response = stub.handle_move(tictactoe_pb2.MoveMessage(node_id=self.node_id, location=location, char=char))
+            self.timeout_map[self.leader_id] = datetime.datetime.utcnow().time()
+
+            self.timeout_map[self.leader_id] = datetime.datetime.utcnow().time()
             state = response.state
             if response.error_msg:
                 print(response.error_msg)
@@ -245,6 +303,7 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
         with grpc.insecure_channel(f'{network}:{port_map[next_player]}') as channel:
             stub = tictactoe_pb2_grpc.TicTacToeStub(channel)
             stub.send_message(tictactoe_pb2.GeneralMessage(
+
                 message="Game over! You lost" if result else "Game over! It's a tie"))
             self.step_down()
         return tictactoe_pb2.Empty()
@@ -271,7 +330,8 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
         server_time = request.new_time
         dt_local = datetime.datetime.utcnow().time()
         dt_server = datetime.datetime.strptime(server_time, "%H:%M:%S").time()
-        diff = datetime.datetime.combine(datetime.date.min, dt_server) - datetime.datetime.combine(datetime.date.min, dt_local)
+        diff = datetime.datetime.combine(datetime.date.min, dt_server) - datetime.datetime.combine(datetime.date.min,
+                                                                                                   dt_local)
 
         self.time_diff = diff
         print(f"New clock: {dt_server}")
@@ -287,6 +347,63 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
         with grpc.insecure_channel(f'{network}:{port_map[target]}') as channel:
             stub = tictactoe_pb2_grpc.TicTacToeStub(channel)
             return stub.set_time(tictactoe_pb2.SetTimeMessage(new_time=time))
+
+
+    def kick_gamemaster(self, request, context):
+        print(f"Received request to kick gamemaster from player {request.node_id}.")
+        if (datetime.datetime.combine(datetime.date.min, datetime.datetime.utcnow().time()) -
+                            datetime.datetime.combine(datetime.date.min, self.timeout_map[self.leader_id])) \
+                                .total_seconds() > self.game_master_timeout * 60:
+            self.leader_id= None
+            print(f"Kicking gamemaster {request.node_id}.")
+
+            return tictactoe_pb2.GameMasterKickResponse(success=True)
+        return tictactoe_pb2.GameMasterKickResponse(success=False)
+
+    def timeout_gm(self):
+
+        nodes = list(port_map.keys())
+        nodes.remove(self.node_id)
+        nodes.remove(self.leader_id)
+        print("Requesting leader timeout")
+        with grpc.insecure_channel(f'{network}:{port_map[nodes[0]]}') as channel:
+            stub = tictactoe_pb2_grpc.TicTacToeStub(channel)
+            resp = stub.kick_gamemaster(tictactoe_pb2.GameMasterKickRequest(node_id=self.node_id))
+            if resp.success:
+                print("Leader is successfully timed out")
+                self.leader_id = None
+                return
+            print("Leader was not timed out, because the other party refused the proposal.")
+            return
+
+    def request_timeout_enforcing(self, request, context):
+        self.timeout_map[request.node_id] = datetime.datetime.utcnow().time()
+        self.enforce_player_timeouts()
+        return tictactoe_pb2.Empty()
+
+
+    def request_leader_timeout_enforcal(self):
+        print("Asking leader to enforce timeouts on players")
+        with grpc.insecure_channel(f'{network}:{port_map[self.leader_id]}') as channel:
+            stub = tictactoe_pb2_grpc.TicTacToeStub(channel)
+            return stub.request_timeout_enforcing(tictactoe_pb2.TimeoutRequestMessage(node_id=self.node_id))
+
+    def enforce_player_timeouts(self):
+        no_timeouts = True
+        print("Checking if any players have timed out")
+        for k, v in self.timeout_map.items():
+            if k == self.node_id:continue
+            if (datetime.datetime.combine(datetime.date.min,
+                datetime.datetime.utcnow().time()) - datetime.datetime.combine(
+                datetime.date.min,
+                v)).total_seconds() > self.player_timeout * 60:
+                no_timeouts = False
+                print(f"Resetting state due to player {k} timeout")
+                self.leader_id = None
+                self.step_down()
+                break
+        return not no_timeouts
+
 
 def serve(id):
     node = Node(id)
