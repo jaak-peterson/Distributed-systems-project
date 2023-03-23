@@ -6,13 +6,18 @@ service TicTacToe {
   rpc ping_node(Empty) returns (PingResult){}
   rpc handle_election(ElectionMessage) returns (ElectionResult) {}
   rpc handle_move(MoveMessage) returns (MoveResponse) {}
-  rpc handle_opponent_move(MoveMessage) returns (Empty) {}
   rpc ask_board_state(Empty) returns (GameStateResponse) {}
   rpc end_game(Empty) returns (Empty){}
   rpc send_message(GeneralMessage) returns (Empty){}
+  rpc set_time(SetTimeMessage) returns (Empty){}
 }
 
 message Empty {}
+
+message SetTimeMessage {
+  string new_time = 1;
+}
+
 
 message GeneralMessage {
   string message = 1 ;

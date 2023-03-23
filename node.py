@@ -7,6 +7,8 @@ import grpc
 from concurrent import futures
 import time
 import os
+import argparse
+
 
 import tictactoe_pb2
 import tictactoe_pb2_grpc
@@ -31,6 +33,7 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
         self.node_id = node_id
         self.leader_id = None
         self.server = None
+        self.time_diff = None
         self.game = None
 
     def run_server(self):
@@ -55,6 +58,8 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
                         continue
                     else:
                         self.init_game()
+                elif ui_parts[0] =="Get-local-time":
+                    print(self.get_time())
                 elif ui_parts[0] == "Elect-leader":
                     if not all(self.is_connected_with_other_nodes()):
                         print("Connection to all nodes failed, please assure all nodes are in the same network.")
@@ -74,7 +79,9 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
                         print("It is opponent's turn")
                     print(f'{symbol}: {data.datetime}, {str(b)}')
                 elif ui_parts[0] == "Set-node-time":
-                    pass
+                    if len(ui_parts) != 3:
+                        print("Set-node-time requires two parameters: target node id and time(hh:mm:ss) ")
+                    self.set_node_time(int(ui_parts[1]), ui_parts[2])
                 elif ui_parts[0] == "Set-symbol":
                     if len(ui_parts) != 3:
                         print("Set-symbol requires two parameters loc(1-9) and symbol(X,O), separated by comma")
@@ -90,7 +97,6 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
         print("Game master has stepped down.")
         return tictactoe_pb2.Empty()
 
-
     def step_down(self):
         print("Initalizing stepping down")
         players = [self.game.o_player, self.game.x_player]
@@ -98,11 +104,11 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
             with grpc.insecure_channel(f'{network}:{port_map[player]}') as channel:
                 stub = tictactoe_pb2_grpc.TicTacToeStub(channel)
                 stub.end_game(tictactoe_pb2.Empty())
-        self.game=None
+        self.game = None
 
     def ask_board_state(self, request, context):
         dt = datetime.datetime.utcnow()
-        dt = dt.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+        dt = dt.strftime("%H:%M:%S.%f")[:-3]
         board = self.game.get_board_list()
         winner = -1
         if self.game.get_state():
@@ -168,15 +174,13 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
         self.game = TicTacToe(board_size=3, x_player=starting_player, o_player=second_player)
         with grpc.insecure_channel(f'{network}:{port_map[starting_player]}') as channel:
             stub = tictactoe_pb2_grpc.TicTacToeStub(channel)
-            stub.send_message(tictactoe_pb2.GeneralMessage(message = "Gamemaster started the game. Your symbol: 'X'"))
+            stub.send_message(tictactoe_pb2.GeneralMessage(message="Gamemaster started the game. Your symbol: 'X'"))
 
         with grpc.insecure_channel(f'{network}:{port_map[second_player]}') as channel:
             stub = tictactoe_pb2_grpc.TicTacToeStub(channel)
-            stub.send_message(tictactoe_pb2.GeneralMessage(message = "Gamemaster started the game. Your symbol: 'O'"))
+            stub.send_message(tictactoe_pb2.GeneralMessage(message="Gamemaster started the game. Your symbol: 'O'"))
 
         return
-
-
 
     def send_message(self, request, context):
         print(request.message)
@@ -184,13 +188,13 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
 
     def handle_move(self, request, context):
 
-        if self.game.get_board_list()[request.location-1] in ["X", "O"]:
+        if self.game.get_board_list()[request.location - 1] in ["X", "O"]:
             return tictactoe_pb2.MoveResponse(error_msg=f"Location {request.location} already contains a number")
         if self.game.to_play() != request.node_id:
             return tictactoe_pb2.MoveResponse(error_msg="Wrong player is trying to make a turn")
         if request.char.lower() != self.game.get_next_char().lower():
             return tictactoe_pb2.MoveResponse(error_msg=f"Illegal symbol. {self.game.get_next_char()} was expected.")
-        if request.location not in range(1,10):
+        if request.location not in range(1, 10):
             return tictactoe_pb2.MoveResponse(error_msg=f"Invalid location.")
 
         self.game.move(f'{request.location - 1}, {request.char}')
@@ -241,10 +245,9 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
         with grpc.insecure_channel(f'{network}:{port_map[next_player]}') as channel:
             stub = tictactoe_pb2_grpc.TicTacToeStub(channel)
             stub.send_message(tictactoe_pb2.GeneralMessage(
-                message= "Game over! You lost" if result else "Game over! It's a tie"))
+                message="Game over! You lost" if result else "Game over! It's a tie"))
             self.step_down()
-        return
-
+        return tictactoe_pb2.Empty()
 
     def check_ping(self, target_id):
         port = port_map[target_id]
@@ -256,44 +259,39 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
                 return False
             return True
 
+    def get_time(self):
+        if self.time_diff:
+            dt = datetime.datetime.utcnow() + self.time_diff
+        else:
+            dt = datetime.datetime.utcnow()
+
+        return dt.time()
+
+    def set_time(self, request, context):
+        server_time = request.new_time
+        dt_local = datetime.datetime.utcnow().time()
+        dt_server = datetime.datetime.strptime(server_time, "%H:%M:%S").time()
+        diff = datetime.datetime.combine(datetime.date.min, dt_server) - datetime.datetime.combine(datetime.date.min, dt_local)
+
+        self.time_diff = diff
+        print(f"New clock: {dt_server}")
+        return tictactoe_pb2.Empty()
+
+    def set_node_time(self, target, time):
+        if target not in port_map.keys():
+            print("Invalid target id")
+            return
+        if self.node_id not in [self.leader_id, target]:
+            print(f"Only the game master ({self.leader_id}) can modify the clock of code {target}")
+            return
+        with grpc.insecure_channel(f'{network}:{port_map[target]}') as channel:
+            stub = tictactoe_pb2_grpc.TicTacToeStub(channel)
+            return stub.set_time(tictactoe_pb2.SetTimeMessage(new_time=time))
 
 def serve(id):
     node = Node(id)
     node.run_server()
 
-    """
-    time.sleep(3)
-    # Play game
-    node1.move("0, x")
-
-    time.sleep(1)
-    node2.move("1, o")
-
-    time.sleep(1)
-    node1.move("4, x")
-
-    time.sleep(1)
-    node2.move("8, o")
-
-    time.sleep(1)
-    node1.move("3, x")
-
-    time.sleep(1)
-    node2.move("6, o")
-
-    time.sleep(1)
-    node1.move("5, x")
-
-    try:
-        while True:
-            time.sleep(86400)
-    except KeyboardInterrupt:
-        node1.stop_server()
-
-    """
-
-
-import argparse
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

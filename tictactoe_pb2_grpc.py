@@ -29,11 +29,6 @@ class TicTacToeStub(object):
                 request_serializer=tictactoe__pb2.MoveMessage.SerializeToString,
                 response_deserializer=tictactoe__pb2.MoveResponse.FromString,
                 )
-        self.handle_opponent_move = channel.unary_unary(
-                '/tic_tac_toe.TicTacToe/handle_opponent_move',
-                request_serializer=tictactoe__pb2.MoveMessage.SerializeToString,
-                response_deserializer=tictactoe__pb2.Empty.FromString,
-                )
         self.ask_board_state = channel.unary_unary(
                 '/tic_tac_toe.TicTacToe/ask_board_state',
                 request_serializer=tictactoe__pb2.Empty.SerializeToString,
@@ -47,6 +42,11 @@ class TicTacToeStub(object):
         self.send_message = channel.unary_unary(
                 '/tic_tac_toe.TicTacToe/send_message',
                 request_serializer=tictactoe__pb2.GeneralMessage.SerializeToString,
+                response_deserializer=tictactoe__pb2.Empty.FromString,
+                )
+        self.set_time = channel.unary_unary(
+                '/tic_tac_toe.TicTacToe/set_time',
+                request_serializer=tictactoe__pb2.SetTimeMessage.SerializeToString,
                 response_deserializer=tictactoe__pb2.Empty.FromString,
                 )
 
@@ -72,12 +72,6 @@ class TicTacToeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def handle_opponent_move(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
     def ask_board_state(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -91,6 +85,12 @@ class TicTacToeServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def send_message(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def set_time(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -114,11 +114,6 @@ def add_TicTacToeServicer_to_server(servicer, server):
                     request_deserializer=tictactoe__pb2.MoveMessage.FromString,
                     response_serializer=tictactoe__pb2.MoveResponse.SerializeToString,
             ),
-            'handle_opponent_move': grpc.unary_unary_rpc_method_handler(
-                    servicer.handle_opponent_move,
-                    request_deserializer=tictactoe__pb2.MoveMessage.FromString,
-                    response_serializer=tictactoe__pb2.Empty.SerializeToString,
-            ),
             'ask_board_state': grpc.unary_unary_rpc_method_handler(
                     servicer.ask_board_state,
                     request_deserializer=tictactoe__pb2.Empty.FromString,
@@ -132,6 +127,11 @@ def add_TicTacToeServicer_to_server(servicer, server):
             'send_message': grpc.unary_unary_rpc_method_handler(
                     servicer.send_message,
                     request_deserializer=tictactoe__pb2.GeneralMessage.FromString,
+                    response_serializer=tictactoe__pb2.Empty.SerializeToString,
+            ),
+            'set_time': grpc.unary_unary_rpc_method_handler(
+                    servicer.set_time,
+                    request_deserializer=tictactoe__pb2.SetTimeMessage.FromString,
                     response_serializer=tictactoe__pb2.Empty.SerializeToString,
             ),
     }
@@ -196,23 +196,6 @@ class TicTacToe(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def handle_opponent_move(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/tic_tac_toe.TicTacToe/handle_opponent_move',
-            tictactoe__pb2.MoveMessage.SerializeToString,
-            tictactoe__pb2.Empty.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
-
-    @staticmethod
     def ask_board_state(request,
             target,
             options=(),
@@ -259,6 +242,23 @@ class TicTacToe(object):
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/tic_tac_toe.TicTacToe/send_message',
             tictactoe__pb2.GeneralMessage.SerializeToString,
+            tictactoe__pb2.Empty.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def set_time(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/tic_tac_toe.TicTacToe/set_time',
+            tictactoe__pb2.SetTimeMessage.SerializeToString,
             tictactoe__pb2.Empty.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
