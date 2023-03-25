@@ -3,15 +3,55 @@ syntax = "proto3";
 package tic_tac_toe;
 
 service TicTacToe {
+  rpc ping_node(Empty) returns (PingResult){}
   rpc handle_election(ElectionMessage) returns (ElectionResult) {}
   rpc handle_move(MoveMessage) returns (MoveResponse) {}
-  rpc handle_opponent_move(MoveMessage) returns (Empty) {}
+  rpc ask_board_state(AskBoardStateMessage) returns (GameStateResponse) {}
+  rpc end_game(Empty) returns (Empty){}
+  rpc send_message(GeneralMessage) returns (Empty){}
+  rpc set_time(SetTimeMessage) returns (Empty){}
+  rpc request_timeout_enforcing(TimeoutRequestMessage) returns (Empty){}
+  rpc kick_gamemaster(GameMasterKickRequest) returns (GameMasterKickResponse){}
 }
 
 message Empty {}
 
+message GameMasterKickRequest {
+   int32 node_id = 1;
+}
+
+message GameMasterKickResponse {
+   bool success = 1;
+}
+
+message TimeoutRequestMessage {
+   int32 node_id = 1;
+}
+
+
+message AskBoardStateMessage {
+   int32 node_id = 1;
+}
+
+message SetTimeMessage {
+  int32 node_id = 1;
+  string new_time = 2;
+}
+
+message GeneralMessage {
+  string message = 1;
+}
+
+message GameStateResponse {
+   repeated string board =1;
+   int32 to_play = 2;
+   string datetime = 3;
+   int32 winner = 4;
+}
+
 message ElectionMessage {
-  int32 sender_id = 1;
+
+   repeated int32 candidate_ids = 1;
 }
 
 message ElectionResult {
@@ -19,12 +59,17 @@ message ElectionResult {
   bool success = 2;
 }
 
+message PingResult{
+  bool success = 1;
+}
+
 message MoveMessage {
   int32 node_id = 1;
-  string move = 2;
-  bool state = 3;
+  int32 location = 2;
+  string char = 3;
 }
 
 message MoveResponse {
   bool state = 1;
+  string error_msg= 2;
 }
