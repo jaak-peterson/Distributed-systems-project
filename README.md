@@ -1,11 +1,18 @@
 # Distributed-systems-project
 
 ## Quick startup 
-Run three python progams:
+Run three or five python progams:
 
-    python node.py --node_id=1
-    python node.py --node_id=2
-    python node.py --node_id=3
+    python node.py --node_id=1 --nr_nodes=3
+    python node.py --node_id=2 --nr_nodes=3
+    python node.py --node_id=3 --nr_nodes=3
+
+    python node.py --node_id=1 --nr_nodes=5
+    python node.py --node_id=2 --nr_nodes=5
+    python node.py --node_id=3 --nr_nodes=5
+    python node.py --node_id=4 --nr_nodes=5
+    python node.py --node_id=5 --nr_nodes=5
+
 
 
 Available commands
