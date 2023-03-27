@@ -130,7 +130,6 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
             print(response.message)
 
     def handle_join_game(self, request, context):
-        print(context.peer())
         if len(self.players_queue) == 1:
             starting_player = self.players_queue[0]["id"]
             second_player = request.node_id
@@ -173,9 +172,7 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
 
     def ask_board_state(self, request, context):
         self.timeout_map[request.node_id] = datetime.datetime.utcnow().time()
-        print(request.node_id)
         game = self.get_game(request.node_id)
-        print(game.board)
 
         dt = datetime.datetime.utcnow()
         dt = dt.strftime("%H:%M:%S.%f")[:-3]
@@ -211,7 +208,6 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
         return tictactoe_pb2.PingResult(success=True)
 
     def handle_election(self, request, context):
-        print(request.candidate_ids)
         print(f"Received election message from process {request.candidate_ids[-1]}")
         if self.node_id == request.candidate_ids[0]:
             result = tictactoe_pb2.ElectionResult(leader_id=max(request.candidate_ids), success=True)
@@ -286,7 +282,6 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
 
     def send_message(self, request, context):
         self.timeout_map[self.leader_id] = datetime.datetime.utcnow().time()
-        print(request.message)
         return tictactoe_pb2.Empty()
 
     def handle_move(self, request, context):
