@@ -75,11 +75,11 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
                     if self.leader_id is None:
                         print("Can not timeout, because there is no leader")
                     if self.node_id == self.leader_id:
-                        timeouts = self.enforce_player_timeouts()
+                        timeouts = self.enforce_player_timeouts(None)
                         if not timeouts:
                             print("No timeouts can be ordered.")
                     else:
-                        self.request_leader_timeout_enforcal()
+                        self.request_leader_timeout_enforcal(self.node_id)
                         if (datetime.datetime.combine(datetime.date.min, datetime.datetime.utcnow().time()) -
                             datetime.datetime.combine(datetime.date.min, self.timeout_map[self.leader_id])) \
                                 .total_seconds() > self.game_master_timeout * 60:
@@ -424,7 +424,7 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
 
     def request_timeout_enforcing(self, request, context):
         self.timeout_map[request.node_id] = datetime.datetime.utcnow().time()
-        self.enforce_player_timeouts()
+        self.enforce_player_timeouts(request.node_id)
         return tictactoe_pb2.Empty()
 
 
@@ -434,7 +434,11 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
             stub = tictactoe_pb2_grpc.TicTacToeStub(channel)
             return stub.request_timeout_enforcing(tictactoe_pb2.TimeoutRequestMessage(node_id=self.node_id))
 
-    def enforce_player_timeouts(self):
+    def enforce_player_timeouts(self, node_id):
+        if node_id is None:
+            game = self.games[0]    
+        else:
+            game = self.get_game(node_id)
         no_timeouts = True
         print("Checking if any players have timed out")
         for k, v in self.timeout_map.items():
@@ -446,7 +450,7 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
                 no_timeouts = False
                 print(f"Resetting state due to player {k} timeout")
                 self.leader_id = None
-                self.step_down()
+                self.step_down(game)
                 break
         return not no_timeouts
 
