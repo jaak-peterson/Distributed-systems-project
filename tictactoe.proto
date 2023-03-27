@@ -12,9 +12,15 @@ service TicTacToe {
   rpc set_time(SetTimeMessage) returns (Empty){}
   rpc request_timeout_enforcing(TimeoutRequestMessage) returns (Empty){}
   rpc kick_gamemaster(GameMasterKickRequest) returns (GameMasterKickResponse){}
+  rpc handle_join_game(JoinGameRequest) returns (GeneralMessage){}
 }
 
 message Empty {}
+
+message JoinGameRequest {
+  int32 node_id = 1; 
+  int32 port = 2;
+}
 
 message GameMasterKickRequest {
    int32 node_id = 1;

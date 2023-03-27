@@ -19,13 +19,12 @@ port_map = {
     5: 50055
 }
 
-
 class Node(tictactoe_pb2_grpc.TicTacToeServicer):
 
-    def __init__(self, node_id, nr_nodes):
+    def __init__(self, node_id, nr_nodes, leader_id):
         self.node_id = node_id
         self.nr_nodes = nr_nodes
-        self.leader_id = None
+        self.leader_id = leader_id
         self.server = None
         self.time_diff = None
         self.games = []
@@ -114,13 +113,45 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
                     if len(ui_parts) != 3:
                         print("Set-symbol requires two parameters loc(1-9) and symbol(X,O), separated by comma")
                     self.move(int(ui_parts[1].strip(", ")), ui_parts[2])
+                elif ui_parts[0] == "Join-game":
+                    if len(ui_parts) != 2:
+                        print("Join-game requires one parameter port")
+                    self.join_game(int(ui_parts[1]))
                 else:
                     print("invalid input")
             except Exception as e:
                 print(
                     f'You broke something. Go in your room and think about what you have done. Error-type {type(e)}{e}')
 
+    def join_game(self, port):
+        with grpc.insecure_channel(f'{network}:{port_map[self.leader_id]}') as channel:
+            stub = tictactoe_pb2_grpc.TicTacToeStub(channel)
+            response = stub.handle_join_game(tictactoe_pb2.JoinGameRequest(node_id=self.node_id, port=port))
+            print(response.message)
 
+    def handle_join_game(self, request, context):
+        print(context.peer())
+        if len(self.players_queue) == 1:
+            starting_player = self.players_queue[0]["id"]
+            second_player = request.node_id
+
+            self.games.append(TicTacToe(board_size=3, x_player=starting_player, o_player=second_player))
+
+            port_map[self.players_queue[0]["id"]] = self.players_queue[0]["port"]
+            port_map[request.node_id] = request.port
+
+            self.players_queue = []
+
+            return tictactoe_pb2.GeneralMessage(message="Gamemaster started the game. Your symbol: 'O'")
+        else:
+            player = {
+                "id": request.node_id,
+                "port": request.port
+            }
+            self.players_queue.append(player)
+
+            return tictactoe_pb2.GeneralMessage(message="You are put into the queue, When the game starts your symbol is 'X'")
+    
     def end_game(self, request, context):
         self.timeout_map[self.leader_id] = datetime.datetime.utcnow().time()
         self.leader_id = None
@@ -425,8 +456,8 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
         return not no_timeouts
 
 
-def serve(id, nr_nodes):
-    node = Node(id, nr_nodes)
+def serve(id, nr_nodes, leader_id):
+    node = Node(id, nr_nodes, leader_id)
     node.run_server()
 
 
@@ -434,5 +465,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--node_id", type=int, default=1)
     parser.add_argument("--nr_nodes", type=int, default=3)
+    parser.add_argument("--leader_id", type=int, default=None)
     args = parser.parse_args()
-    serve(args.node_id, args.nr_nodes)
+    serve(args.node_id, args.nr_nodes, args.leader_id)

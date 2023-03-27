@@ -59,6 +59,11 @@ class TicTacToeStub(object):
                 request_serializer=tictactoe__pb2.GameMasterKickRequest.SerializeToString,
                 response_deserializer=tictactoe__pb2.GameMasterKickResponse.FromString,
                 )
+        self.handle_join_game = channel.unary_unary(
+                '/tic_tac_toe.TicTacToe/handle_join_game',
+                request_serializer=tictactoe__pb2.JoinGameRequest.SerializeToString,
+                response_deserializer=tictactoe__pb2.GeneralMessage.FromString,
+                )
 
 
 class TicTacToeServicer(object):
@@ -118,6 +123,12 @@ class TicTacToeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def handle_join_game(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_TicTacToeServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -165,6 +176,11 @@ def add_TicTacToeServicer_to_server(servicer, server):
                     servicer.kick_gamemaster,
                     request_deserializer=tictactoe__pb2.GameMasterKickRequest.FromString,
                     response_serializer=tictactoe__pb2.GameMasterKickResponse.SerializeToString,
+            ),
+            'handle_join_game': grpc.unary_unary_rpc_method_handler(
+                    servicer.handle_join_game,
+                    request_deserializer=tictactoe__pb2.JoinGameRequest.FromString,
+                    response_serializer=tictactoe__pb2.GeneralMessage.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -326,5 +342,22 @@ class TicTacToe(object):
         return grpc.experimental.unary_unary(request, target, '/tic_tac_toe.TicTacToe/kick_gamemaster',
             tictactoe__pb2.GameMasterKickRequest.SerializeToString,
             tictactoe__pb2.GameMasterKickResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def handle_join_game(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/tic_tac_toe.TicTacToe/handle_join_game',
+            tictactoe__pb2.JoinGameRequest.SerializeToString,
+            tictactoe__pb2.GeneralMessage.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
