@@ -116,7 +116,10 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
                 elif ui_parts[0] == "Join-game":
                     if len(ui_parts) != 2:
                         print("Join-game requires one parameter port")
-                    self.join_game(int(ui_parts[1]))
+                    elif self.node_id == self.leader_id:
+                        print("Leader can not join the game")
+                    else:
+                        self.join_game(int(ui_parts[1]))
                 else:
                     print("invalid input")
             except Exception as e:
@@ -168,7 +171,7 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
             with grpc.insecure_channel(f'{network}:{port_map[player]}') as channel:
                 stub = tictactoe_pb2_grpc.TicTacToeStub(channel)
                 stub.end_game(tictactoe_pb2.Empty())
-        self.games = []
+        self.games = [g for g in self.games if g.id != game.id]
 
     def ask_board_state(self, request, context):
         self.timeout_map[request.node_id] = datetime.datetime.utcnow().time()
@@ -282,6 +285,7 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
 
     def send_message(self, request, context):
         self.timeout_map[self.leader_id] = datetime.datetime.utcnow().time()
+        print(request.message)
         return tictactoe_pb2.Empty()
 
     def handle_move(self, request, context):

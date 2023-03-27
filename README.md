@@ -27,5 +27,6 @@ Available commands
 | Set-node-time |     target(id) &  time(hh:mm:ss)      | Sets target node local time to given time |     all*     |
 | Set-time-out | target(game-master/player) & duration |    Sets local timeout for target class    |     all      
 | Enforce-time-out |                   -                   |   Enforces time-out of nodes/gamemaster   |     all      |
+| Join-game |                   port                  |   Requests to join the game and sends it's port to master   |     players      |
 
 

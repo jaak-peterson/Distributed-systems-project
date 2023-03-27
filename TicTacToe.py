@@ -10,10 +10,14 @@ def check_win(axis):
 
 class TicTacToe:
     def __init__(self, board_size=3, x_player=None, o_player=None):
+        self.id = self.generate_id(x_player, o_player)
         self.x_player = x_player
         self.o_player = o_player
         self.board_size = board_size
         self.board = np.empty((board_size, board_size), dtype=str)
+    
+    def generate_id(self, x_player, o_player):
+        return hash((x_player, o_player))
 
     def move(self, value):
         value = value.split(",")
